@@ -27,7 +27,7 @@ let currentStroke: { points: { x: number; y: number }[]; lineWidth: number } | n
 const redoStack: { points: { x: number; y: number }[]; lineWidth: number }[] = [];
 
 // Array to track stickers
-const stickers: { emoji: string; x: number; y: number }[] = [];
+const stickers: { emoji: string; x: number; y: number; rotation: number }[] = [];
 
 // Track whether the sticker tool is active
 let stickerMode = false;
@@ -45,14 +45,6 @@ stickerPreview.style.fontSize = "24px"; // Match the emoji font size
 stickerPreview.style.opacity = "0"; // Start hidden
 stickerPreview.innerHTML = selectedEmoji;
 document.body.append(stickerPreview);
-
-
-
-
-
-
-
-
 
 
 if (ctx) {
@@ -107,6 +99,7 @@ if (ctx) {
         emoji: selectedEmoji,
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
+        rotation: rotationVar * Math.PI/180,
       });
 
       redrawCanvas(); // Redraw everything, including stickers
@@ -294,7 +287,6 @@ bigSize.onclick = () => {
 
 app.append(document.createElement("br"));
 
-
 function redrawCanvas() {
   ctx?.clearRect(0, 0, myCanvas.width, myCanvas.height); // Clear canvas
   
@@ -309,30 +301,97 @@ function redrawCanvas() {
     }
   }
 
-  // Redraw stickers
+  // Redraw stickers with rotation
   for (const sticker of stickers) {
-    ctx.font = "24px sans-serif"; // Adjust font size as needed
-    ctx?.fillText(sticker.emoji, sticker.x, sticker.y);
+    ctx.save(); // Save the current state
+    ctx.translate(sticker.x, sticker.y); // Translate to sticker position
+    ctx.rotate(sticker.rotation); // Apply rotation
+    ctx.font = "24px sans-serif"; // Maintain font size
+    ctx?.fillText(sticker.emoji, 0, 0); // Draw emoji at the origin
+    ctx.restore(); // Restore the original state
   }
 }
 
+
+// Create a hidden high-resolution canvas
+const hdCanvas = document.createElement("canvas");
+const hdCtx = hdCanvas.getContext("2d")!;
+hdCanvas.width = 1024; // High resolution width
+hdCanvas.height = 1024; // High resolution height
+
 // Export Button
 const exportButton = document.createElement("button");
-exportButton.innerHTML = "Export as PNG";
+exportButton.innerHTML = "Export as High-Res PNG";
 app.append(exportButton);
 
 exportButton.onclick = () => {
-  if (myCanvas) {
-    
-    // Create an anchor element to trigger the download
+  if (myCanvas && hdCtx) {
+    // Clear the high-resolution canvas
+    hdCtx.clearRect(0, 0, hdCanvas.width, hdCanvas.height);
+
+    // Scale the HD canvas
+    const scaleX = hdCanvas.width / myCanvas.width;
+    const scaleY = hdCanvas.height / myCanvas.height;
+    hdCtx.scale(scaleX, scaleY);
+
+    // Redraw everything at the high resolution
+    redrawHDCanvas(hdCtx);
+
+    // Create a data URL from the high-resolution canvas
     const downloadLink = document.createElement("a");
-    downloadLink.href = myCanvas.toDataURL("image/png");;
-    downloadLink.download = "sketchpad.png"; // Default file name
+    downloadLink.href = hdCanvas.toDataURL("image/png");
+    downloadLink.download = "sketchpad_highres.png"; // High-resolution PNG file
     downloadLink.click();
+
+    // Reset the HD canvas transformation after export
+    hdCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformations
   } else {
-    console.error("Canvas export failed: Canvas element not found.");
+    console.error("High-resolution canvas export failed!");
   }
 };
+
+// High-resolution redraw
+function redrawHDCanvas(ctx: CanvasRenderingContext2D) {
+  // Redraw strokes
+  for (const stroke of strokes) {
+    ctx.lineWidth = stroke.lineWidth; // Set the line width for this stroke
+    ctx.strokeStyle = "black"; // Default pen color
+    for (let i = 0; i < stroke.points.length - 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(stroke.points[i].x, stroke.points[i].y);
+      ctx.lineTo(stroke.points[i + 1].x, stroke.points[i + 1].y);
+      ctx.stroke();
+    }
+  }
+
+  // Redraw stickers with rotation
+  for (const sticker of stickers) {
+    ctx.save(); // Save the current state
+    ctx.translate(sticker.x, sticker.y); // Translate to sticker position
+    ctx.rotate(sticker.rotation); // Apply rotation
+    ctx.font = "24px sans-serif"; // Maintain font size
+    ctx.fillText(sticker.emoji, 0, 0); // Draw emoji at the origin
+    ctx.restore(); // Restore the original state
+  }
+}
+
+
+app.append(document.createElement("br"));
+
+
+const rotateButton = document.createElement("button");
+rotateButton.innerHTML = "Current Rotation: 0";
+app.append(rotateButton);
+let rotationVar = 0;
+
+rotateButton.onclick = () => {
+  rotationVar = rotationVar + 90;
+  if(rotationVar >= 360){
+    rotationVar = 0;
+  }
+  rotateButton.innerHTML = 'Current Rotation: ' + rotationVar;
+};
+
 
 
 //when the program starts, deselect all buttons and select the default button
