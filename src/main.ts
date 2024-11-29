@@ -46,6 +46,15 @@ stickerPreview.style.opacity = "0"; // Start hidden
 stickerPreview.innerHTML = selectedEmoji;
 document.body.append(stickerPreview);
 
+
+
+
+
+
+
+
+
+
 if (ctx) {
   ctx.strokeStyle = "black";
   ctx.lineWidth = 2;
@@ -132,7 +141,7 @@ eventDispatcher.addEventListener("canvasStrokeMove", (e: Event) => {
 eventDispatcher.addEventListener("canvasStrokeEnd", () => {
   currentStroke = null;
 });
-
+app.append(document.createElement("br"));
 // "Clear" Button
 const clearButton = document.createElement("button");
 clearButton.innerHTML = `Clear`;
@@ -190,6 +199,20 @@ eventDispatcher.addEventListener("canvasRedo", () => {
   }
 });
 
+app.append(document.createElement("br"));
+//drawing buttons
+
+const customStickerButton = document.createElement("button");
+customStickerButton.innerHTML = "custom sticker";
+app.append(customStickerButton);
+
+customStickerButton.onclick = () => {
+  selectedEmoji = prompt("Custom sticker text","🧽");
+  stickerPreview.innerHTML = selectedEmoji;
+  deselectAllButtons();
+  customStickerButton.style.background = "green";
+};
+
 
 const sticker1Button = document.createElement("button");
 sticker1Button.innerHTML = "😊";
@@ -198,6 +221,9 @@ app.append(sticker1Button);
 sticker1Button.onclick = () => {
   selectedEmoji = "😊";
   stickerPreview.innerHTML = selectedEmoji;
+  stickerMode = true;
+  deselectAllButtons();
+  sticker1Button.style.background = "green";
 };
 
 const sticker2Button = document.createElement("button");
@@ -207,6 +233,9 @@ app.append(sticker2Button);
 sticker2Button.onclick = () => {
   selectedEmoji = "😃";
   stickerPreview.innerHTML = selectedEmoji;
+  stickerMode = true;
+  deselectAllButtons();
+  sticker2Button.style.background = "green";
 };
 
 const sticker3Button = document.createElement("button");
@@ -216,19 +245,12 @@ app.append(sticker3Button);
 sticker3Button.onclick = () => {
   selectedEmoji = "😆";
   stickerPreview.innerHTML = selectedEmoji;
+  stickerMode = true;
+  deselectAllButtons();
+  sticker3Button.style.background = "green";
 };
 
-
-
-// Sticker Button
-const stickerButton = document.createElement("button");
-stickerButton.innerHTML = "Sticker Tool";
-app.append(stickerButton);
-
-stickerButton.onclick = () => {
-  stickerMode = true; // Toggle the sticker tool
-};
-
+app.append(document.createElement("br"));
 const smallestSize = document.createElement("button");
 smallestSize.innerHTML = "1px";
 app.append(smallestSize);
@@ -238,6 +260,8 @@ smallestSize.onclick = () => {
   if (ctx) {
     ctx.lineWidth = 1;
   }
+  deselectAllButtons();
+  smallestSize.style.background = "green";
 };
 
 const defaultSize = document.createElement("button");
@@ -249,7 +273,11 @@ defaultSize.onclick = () => {
   if (ctx) {
     ctx.lineWidth = 2;
   }
+  deselectAllButtons();
+  defaultSize.style.background = "green";
 };
+
+
 
 const bigSize = document.createElement("button");
 bigSize.innerHTML = "10px";
@@ -260,7 +288,12 @@ bigSize.onclick = () => {
   if (ctx) {
     ctx.lineWidth = 10;
   }
+  deselectAllButtons();
+  bigSize.style.background = "green";
 };
+
+app.append(document.createElement("br"));
+
 
 function redrawCanvas() {
   ctx?.clearRect(0, 0, myCanvas.width, myCanvas.height); // Clear canvas
@@ -282,3 +315,42 @@ function redrawCanvas() {
     ctx?.fillText(sticker.emoji, sticker.x, sticker.y);
   }
 }
+
+// Export Button
+const exportButton = document.createElement("button");
+exportButton.innerHTML = "Export as PNG";
+app.append(exportButton);
+
+exportButton.onclick = () => {
+  if (myCanvas) {
+    
+    // Create an anchor element to trigger the download
+    const downloadLink = document.createElement("a");
+    downloadLink.href = myCanvas.toDataURL("image/png");;
+    downloadLink.download = "sketchpad.png"; // Default file name
+    downloadLink.click();
+  } else {
+    console.error("Canvas export failed: Canvas element not found.");
+  }
+};
+
+
+//when the program starts, deselect all buttons and select the default button
+deselectAllButtons();
+defaultSize.style.background = "green";
+
+
+
+
+function deselectAllButtons(){
+
+  // Query all buttons
+  const allButtons = Array.from(document.querySelectorAll("button"));
+
+  // Change text color to blue
+  allButtons.forEach((button) => {
+    button.style.background = "black";
+  });
+
+}
+
