@@ -26,37 +26,86 @@ let currentStroke: { points: { x: number; y: number }[]; lineWidth: number } | n
 // Add a redoStack to store undone actions
 const redoStack: { points: { x: number; y: number }[]; lineWidth: number }[] = [];
 
+// Array to track stickers
+const stickers: { emoji: string; x: number; y: number }[] = [];
+
+// Track whether the sticker tool is active
+let stickerMode = false;
+let selectedEmoji = "😊"; // Default emoji
+
+
 // Create a centralized event dispatcher
 const eventDispatcher = document.createElement("div");
+
+// Emoji Preview Element
+const stickerPreview = document.createElement("div");
+stickerPreview.style.position = "absolute";
+stickerPreview.style.pointerEvents = "none"; // Ensure it doesn't interfere with mouse events
+stickerPreview.style.fontSize = "24px"; // Match the emoji font size
+stickerPreview.style.opacity = "0"; // Start hidden
+stickerPreview.innerHTML = selectedEmoji;
+document.body.append(stickerPreview);
 
 if (ctx) {
   ctx.strokeStyle = "black";
   ctx.lineWidth = 2;
 
   myCanvas.addEventListener("mousedown", (e) => {
-    // Start a new stroke with the current line width
-    currentStroke = { points: [], lineWidth: ctx.lineWidth };
-    strokes.push(currentStroke);
+    if (!stickerMode) {
+      // Start a new stroke if not in sticker mode
+      currentStroke = { points: [], lineWidth: ctx.lineWidth };
+      strokes.push(currentStroke);
 
-    const startEvent = new CustomEvent("canvasStrokeStart", {
-      detail: { x: e.offsetX, y: e.offsetY },
-    });
-    eventDispatcher.dispatchEvent(startEvent);
+      const startEvent = new CustomEvent("canvasStrokeStart", {
+        detail: { x: e.offsetX, y: e.offsetY },
+      });
+      eventDispatcher.dispatchEvent(startEvent);
+    }
   });
 
   myCanvas.addEventListener("mousemove", (e) => {
-    if (e.buttons === 1 && currentStroke) {
+    if (e.buttons === 1 && currentStroke && !stickerMode) {
       const moveEvent = new CustomEvent("canvasStrokeMove", {
         detail: { x: e.offsetX, y: e.offsetY },
       });
       eventDispatcher.dispatchEvent(moveEvent);
     }
+
+    // Update the sticker preview if the sticker tool is active
+    if (stickerMode) {
+      stickerPreview.style.opacity = "1"; // Make the preview visible
+      stickerPreview.style.left = `${e.clientX}px`; // Center the emoji (adjust -12 for alignment)
+      stickerPreview.style.top = `${e.clientY - 24}px`; // Center the emoji
+    } else {
+      stickerPreview.style.opacity = "0"; // Hide the preview if not in sticker mode
+    }
   });
 
   myCanvas.addEventListener("mouseup", () => {
-    currentStroke = null; // Reset current stroke
-    const endEvent = new CustomEvent("canvasStrokeEnd");
-    eventDispatcher.dispatchEvent(endEvent);
+    if (!stickerMode) {
+      currentStroke = null; // Reset current stroke
+      const endEvent = new CustomEvent("canvasStrokeEnd");
+      eventDispatcher.dispatchEvent(endEvent);
+    }
+  });
+
+  // Add a listener for placing stickers
+  myCanvas.addEventListener("click", (e) => {
+    if (stickerMode) {
+      // Add a sticker to the sticker array when the tool is active
+      const rect = myCanvas.getBoundingClientRect();
+      stickers.push({
+        emoji: selectedEmoji,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+
+      redrawCanvas(); // Redraw everything, including stickers
+    }
+  });
+
+  myCanvas.addEventListener("mouseleave", () => {
+    stickerPreview.style.opacity = "0"; // Hide the emoji preview when the mouse leaves the canvas
   });
 } else {
   console.log("Error: Canvas context not available");
@@ -98,6 +147,7 @@ eventDispatcher.addEventListener("canvasClear", () => {
   ctx?.clearRect(0, 0, myCanvas.width, myCanvas.height);
   strokes.length = 0; // Clear saved strokes
   redoStack.length = 0; // Clear redo stack to prevent restoring cleared strokes
+  stickers.length = 0; // Clear added stickers
 });
 
 // Undo Button
@@ -140,12 +190,51 @@ eventDispatcher.addEventListener("canvasRedo", () => {
   }
 });
 
-// Buttons to change line width
+
+const sticker1Button = document.createElement("button");
+sticker1Button.innerHTML = "😊";
+app.append(sticker1Button);
+
+sticker1Button.onclick = () => {
+  selectedEmoji = "😊";
+  stickerPreview.innerHTML = selectedEmoji;
+};
+
+const sticker2Button = document.createElement("button");
+sticker2Button.innerHTML = "😃";
+app.append(sticker2Button);
+
+sticker2Button.onclick = () => {
+  selectedEmoji = "😃";
+  stickerPreview.innerHTML = selectedEmoji;
+};
+
+const sticker3Button = document.createElement("button");
+sticker3Button.innerHTML = "😆";
+app.append(sticker3Button);
+
+sticker3Button.onclick = () => {
+  selectedEmoji = "😆";
+  stickerPreview.innerHTML = selectedEmoji;
+};
+
+
+
+// Sticker Button
+const stickerButton = document.createElement("button");
+stickerButton.innerHTML = "Sticker Tool";
+app.append(stickerButton);
+
+stickerButton.onclick = () => {
+  stickerMode = true; // Toggle the sticker tool
+};
+
 const smallestSize = document.createElement("button");
 smallestSize.innerHTML = "1px";
 app.append(smallestSize);
 
 smallestSize.onclick = () => {
+  stickerMode = false;
   if (ctx) {
     ctx.lineWidth = 1;
   }
@@ -156,23 +245,27 @@ defaultSize.innerHTML = "2px";
 app.append(defaultSize);
 
 defaultSize.onclick = () => {
+  stickerMode = false;
   if (ctx) {
     ctx.lineWidth = 2;
   }
 };
 
 const bigSize = document.createElement("button");
-bigSize.innerHTML = "5px";
+bigSize.innerHTML = "10px";
 app.append(bigSize);
 
 bigSize.onclick = () => {
+  stickerMode = false;
   if (ctx) {
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 10;
   }
 };
 
 function redrawCanvas() {
   ctx?.clearRect(0, 0, myCanvas.width, myCanvas.height); // Clear canvas
+  
+  // Redraw strokes
   for (const stroke of strokes) {
     ctx.lineWidth = stroke.lineWidth; // Set the line width for this stroke
     for (let i = 0; i < stroke.points.length - 1; i++) {
@@ -181,5 +274,11 @@ function redrawCanvas() {
       ctx?.lineTo(stroke.points[i + 1].x, stroke.points[i + 1].y);
       ctx?.stroke();
     }
+  }
+
+  // Redraw stickers
+  for (const sticker of stickers) {
+    ctx.font = "24px sans-serif"; // Adjust font size as needed
+    ctx?.fillText(sticker.emoji, sticker.x, sticker.y);
   }
 }
