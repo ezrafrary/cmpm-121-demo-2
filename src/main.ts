@@ -21,16 +21,16 @@ const ctx = myCanvas.getContext("2d");
 
 // Array to store strokes, now includes line width
 const strokes: { points: { x: number; y: number }[]; lineWidth: number }[] = [];
-let currentStroke: { points: { x: number; y: number }[]; lineWidth: number } | null = null;
+let activeStroke: { points: { x: number; y: number }[]; lineWidth: number } | null = null;
 
-// Add a redoStack to store undone actions
-const redoStack: { points: { x: number; y: number }[]; lineWidth: number }[] = [];
+// Add a undoneStrokes to store undone actions
+const undoneStrokes: { points: { x: number; y: number }[]; lineWidth: number }[] = [];
 
 // Array to track stickers
 const stickers: { emoji: string; x: number; y: number; rotation: number }[] = [];
 
 // Track whether the sticker tool is active
-let stickerMode = false;
+let isStickerToolActive = false;
 let selectedEmoji = "😊"; // Default emoji
 
 
@@ -52,10 +52,10 @@ if (ctx) {
   ctx.lineWidth = 2;
 
   myCanvas.addEventListener("mousedown", (e) => {
-    if (!stickerMode) {
+    if (!isStickerToolActive) {
       // Start a new stroke if not in sticker mode
-      currentStroke = { points: [], lineWidth: ctx.lineWidth };
-      strokes.push(currentStroke);
+      activeStroke = { points: [], lineWidth: ctx.lineWidth };
+      strokes.push(activeStroke);
 
       const startEvent = new CustomEvent("canvasStrokeStart", {
         detail: { x: e.offsetX, y: e.offsetY },
@@ -65,7 +65,7 @@ if (ctx) {
   });
 
   myCanvas.addEventListener("mousemove", (e) => {
-    if (e.buttons === 1 && currentStroke && !stickerMode) {
+    if (e.buttons === 1 && activeStroke && !isStickerToolActive) {
       const moveEvent = new CustomEvent("canvasStrokeMove", {
         detail: { x: e.offsetX, y: e.offsetY },
       });
@@ -73,7 +73,7 @@ if (ctx) {
     }
 
     // Update the sticker preview if the sticker tool is active
-    if (stickerMode) {
+    if (isStickerToolActive) {
       stickerPreview.style.opacity = "1"; // Make the preview visible
       stickerPreview.style.left = `${e.clientX}px`; // Center the emoji (adjust -12 for alignment)
       stickerPreview.style.top = `${e.clientY - 24}px`; // Center the emoji
@@ -83,8 +83,8 @@ if (ctx) {
   });
 
   myCanvas.addEventListener("mouseup", () => {
-    if (!stickerMode) {
-      currentStroke = null; // Reset current stroke
+    if (!isStickerToolActive) {
+      activeStroke = null; // Reset current stroke
       const endEvent = new CustomEvent("canvasStrokeEnd");
       eventDispatcher.dispatchEvent(endEvent);
     }
@@ -92,14 +92,14 @@ if (ctx) {
 
   // Add a listener for placing stickers
   myCanvas.addEventListener("click", (e) => {
-    if (stickerMode) {
+    if (isStickerToolActive) {
       // Add a sticker to the sticker array when the tool is active
       const rect = myCanvas.getBoundingClientRect();
       stickers.push({
         emoji: selectedEmoji,
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-        rotation: rotationVar * Math.PI/180,
+        rotation: currentStickerRotation * Math.PI/180,
       });
 
       redrawCanvas(); // Redraw everything, including stickers
@@ -115,14 +115,14 @@ if (ctx) {
 
 eventDispatcher.addEventListener("canvasStrokeStart", (e: Event) => {
   const { x, y } = (e as CustomEvent).detail;
-  currentStroke?.points.push({ x, y });
+  activeStroke?.points.push({ x, y });
 });
 
 eventDispatcher.addEventListener("canvasStrokeMove", (e: Event) => {
   const { x, y } = (e as CustomEvent).detail;
-  currentStroke?.points.push({ x, y });
+  activeStroke?.points.push({ x, y });
 
-  const lastPoint = currentStroke?.points[currentStroke.points.length - 2];
+  const lastPoint = activeStroke?.points[activeStroke.points.length - 2];
   if (lastPoint) {
     ctx?.beginPath();
     ctx?.moveTo(lastPoint.x, lastPoint.y);
@@ -132,7 +132,7 @@ eventDispatcher.addEventListener("canvasStrokeMove", (e: Event) => {
 });
 
 eventDispatcher.addEventListener("canvasStrokeEnd", () => {
-  currentStroke = null;
+  activeStroke = null;
 });
 app.append(document.createElement("br"));
 // "Clear" Button
@@ -148,7 +148,7 @@ clearButton.onclick = () => {
 eventDispatcher.addEventListener("canvasClear", () => {
   ctx?.clearRect(0, 0, myCanvas.width, myCanvas.height);
   strokes.length = 0; // Clear saved strokes
-  redoStack.length = 0; // Clear redo stack to prevent restoring cleared strokes
+  undoneStrokes.length = 0; // Clear redo stack to prevent restoring cleared strokes
   stickers.length = 0; // Clear added stickers
 });
 
@@ -166,7 +166,7 @@ eventDispatcher.addEventListener("canvasUndo", () => {
   if (strokes.length > 0) {
     const undoneStroke = strokes.pop(); // Remove the last stroke
     if (undoneStroke) {
-      redoStack.push(undoneStroke); // Save it in the redo stack for potential redo
+      undoneStrokes.push(undoneStroke); // Save it in the redo stack for potential redo
     }
     redrawCanvas(); // Redraw the canvas to reflect the change
   }
@@ -183,8 +183,8 @@ redoButton.onclick = () => {
 };
 
 eventDispatcher.addEventListener("canvasRedo", () => {
-  if (redoStack.length > 0) {
-    const restoredStroke = redoStack.pop(); // Get the last undone stroke
+  if (undoneStrokes.length > 0) {
+    const restoredStroke = undoneStrokes.pop(); // Get the last undone stroke
     if (restoredStroke) {
       strokes.push(restoredStroke); // Re-add the stroke to the strokes array
       redrawCanvas(); // Redraw the canvas to include the restored stroke
@@ -214,7 +214,7 @@ app.append(sticker1Button);
 sticker1Button.onclick = () => {
   selectedEmoji = "😊";
   stickerPreview.innerHTML = selectedEmoji;
-  stickerMode = true;
+  isStickerToolActive = true;
   deselectAllButtons();
   sticker1Button.style.background = "green";
 };
@@ -226,7 +226,7 @@ app.append(sticker2Button);
 sticker2Button.onclick = () => {
   selectedEmoji = "😃";
   stickerPreview.innerHTML = selectedEmoji;
-  stickerMode = true;
+  isStickerToolActive = true;
   deselectAllButtons();
   sticker2Button.style.background = "green";
 };
@@ -238,7 +238,7 @@ app.append(sticker3Button);
 sticker3Button.onclick = () => {
   selectedEmoji = "😆";
   stickerPreview.innerHTML = selectedEmoji;
-  stickerMode = true;
+  isStickerToolActive = true;
   deselectAllButtons();
   sticker3Button.style.background = "green";
 };
@@ -249,7 +249,7 @@ smallestSize.innerHTML = "1px";
 app.append(smallestSize);
 
 smallestSize.onclick = () => {
-  stickerMode = false;
+  isStickerToolActive = false;
   if (ctx) {
     ctx.lineWidth = 1;
   }
@@ -262,7 +262,7 @@ defaultSize.innerHTML = "2px";
 app.append(defaultSize);
 
 defaultSize.onclick = () => {
-  stickerMode = false;
+  isStickerToolActive = false;
   if (ctx) {
     ctx.lineWidth = 2;
   }
@@ -277,7 +277,7 @@ bigSize.innerHTML = "10px";
 app.append(bigSize);
 
 bigSize.onclick = () => {
-  stickerMode = false;
+  isStickerToolActive = false;
   if (ctx) {
     ctx.lineWidth = 10;
   }
@@ -382,14 +382,14 @@ app.append(document.createElement("br"));
 const rotateButton = document.createElement("button");
 rotateButton.innerHTML = "Current Rotation: 0";
 app.append(rotateButton);
-let rotationVar = 0;
+let currentStickerRotation = 0;
 
 rotateButton.onclick = () => {
-  rotationVar = rotationVar + 90;
-  if(rotationVar >= 360){
-    rotationVar = 0;
+  currentStickerRotation = currentStickerRotation + 90;
+  if(currentStickerRotation >= 360){
+    currentStickerRotation = 0;
   }
-  rotateButton.innerHTML = 'Current Rotation: ' + rotationVar;
+  rotateButton.innerHTML = 'Current Rotation: ' + currentStickerRotation;
 };
 
 
