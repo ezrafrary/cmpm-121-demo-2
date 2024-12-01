@@ -285,6 +285,22 @@ bigSize.onclick = () => {
   bigSize.style.background = "green";
 };
 
+
+
+const biggestSize = document.createElement("button");
+biggestSize.innerHTML = "20px";
+app.append(biggestSize);
+
+biggestSize.onclick = () => {
+  isStickerToolActive = false;
+  if (ctx) {
+    ctx.lineWidth = 20;
+  }
+  deselectAllButtons();
+  biggestSize.style.background = "green";
+};
+
+
 app.append(document.createElement("br"));
 
 function redrawCanvas() {
@@ -303,12 +319,12 @@ function redrawCanvas() {
 
   // Redraw stickers with rotation
   for (const sticker of stickers) {
-    ctx.save(); // Save the current state
-    ctx.translate(sticker.x, sticker.y); // Translate to sticker position
-    ctx.rotate(sticker.rotation); // Apply rotation
+    ctx?.save(); // Save the current state
+    ctx?.translate(sticker.x, sticker.y); // Translate to sticker position
+    ctx?.rotate(sticker.rotation); // Apply rotation
     ctx.font = "24px sans-serif"; // Maintain font size
     ctx?.fillText(sticker.emoji, 0, 0); // Draw emoji at the origin
-    ctx.restore(); // Restore the original state
+    ctx?.restore(); // Restore the original state
   }
 }
 
